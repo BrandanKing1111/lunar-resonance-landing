@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Lunar Resonance — Data Sphere Landing</title>
+<style>
+  :root { --cyan: #00f0ff; --deep: #ff3a1a; --bg: #050510; }
+  body { margin:0; background:var(--bg); color:#e0e0e0; font-family:system-ui,sans-serif;
+         display:flex; flex-direction:column; align-items:center; min-height:100vh; }
+  header { text-align:center; padding:2rem 1rem 1rem; }
+  h1 { margin:0; font-weight:300; letter-spacing:.15em; color:var(--cyan); text-shadow:0 0 12px var(--cyan); }
+  .subtitle { opacity:.7; font-size:.9rem; }
+  #moon { width:min(90vw,520px); height:min(90vw,520px); border-radius:50%;
+          background:radial-gradient(circle at 35% 35%, #1a2a4a, #0a0a18 70%);
+          box-shadow:0 0 60px rgba(0,240,255,.25), inset 0 0 40px rgba(255,58,26,.15);
+          position:relative; margin:1rem auto; overflow:hidden; }
+  .glow-high { position:absolute; inset:0; background:radial-gradient(circle at 40% 30%, rgba(0,240,255,.35), transparent 50%); mix-blend-mode:screen; }
+  .glow-low  { position:absolute; inset:0; background:radial-gradient(circle at 65% 60%, rgba(255,58,26,.4), transparent 55%); mix-blend-mode:screen; }
+  canvas#wave { width:min(90vw,640px); height:120px; background:#0a0a14; border:1px solid #1a3a4a; border-radius:8px; margin:1rem; }
+  .controls, .stream-box { width:min(90vw,640px); margin:.5rem; }
+  button { background:#0a2a3a; color:var(--cyan); border:1px solid var(--cyan); padding:.5rem 1.2rem; border-radius:4px; cursor:pointer; margin-right:.5rem; }
+  button:hover { background:#123; }
+  #log { height:160px; background:#080810; border:1px solid #223; border-radius:6px; padding:.8rem;
+         font-family:monospace; font-size:.8rem; overflow-y:auto; white-space:pre-wrap; }
+  .legend { display:flex; gap:1.5rem; justify-content:center; font-size:.85rem; margin:.5rem; }
+  .dot { width:12px; height:12px; border-radius:50%; display:inline-block; margin-right:4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>LUNAR RESONANCE</h1>
+  <div class="subtitle">Data Sphere Landing Pad · Binary Wave Receiver</div>
+</header>
+<div id="moon"><div class="glow-high"></div><div class="glow-low"></div></div>
+<div class="legend">
+  <span><span class="dot" style="background:var(--cyan)"></span> High Frequency (Al, Ca)</span>
+  <span><span class="dot" style="background:var(--deep)"></span> Low Frequency (Fe, Ti)</span>
+</div>
+<canvas id="wave" width="640" height="120"></canvas>
+<div class="controls">
+  <button onclick="startStream()">Start Stream</button>
+  <button onclick="stopStream()">Stop</button>
+  <button onclick="clearLog()">Clear Log</button>
+</div>
+<div class="stream-box"><div id="log">Waiting for lunar input stream…</div></div>
+<script>
+const freqs = {O:10.0, Si:8.0, Al:6.5, Ca:5.0, Fe:3.0, Ti:2.0};
+const weights = {O:0.40, Si:0.30, Al:0.10, Ca:0.08, Fe:0.08, Ti:0.04};
+let running = false, t0 = 0, anim;
+function sample(t) {
+  let s = 0;
+  for (const [el, f] of Object.entries(freqs))
+    s += weights[el] * Math.sign(Math.sin(2 * Math.PI * f * t));
+  return s;
+}
+function drawWave() {
+  const c = document.getElementById('wave'), ctx = c.getContext('2d');
+  const w = c.width, h = c.height;
+  ctx.fillStyle = '#0a0a14'; ctx.fillRect(0,0,w,h);
+  ctx.beginPath(); ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 1.5;
+  for (let x = 0; x < w; x++) {
+    const t = (performance.now()/1000 - t0) + x/80;
+    const y = h/2 - sample(t) * (h/2 - 8);
+    x === 0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+}
+function log(msg) {
+  const el = document.getElementById('log');
+  el.textContent += msg + '\n';
+  el.scrollTop = el.scrollHeight;
+}
+function startStream() {
+  if (running) return;
+  running = true; t0 = performance.now()/1000;
+  log('>>> Stream locked to lunar elemental carriers');
+  anim = requestAnimationFrame(loop);
+}
+function loop() {
+  if (!running) return;
+  drawWave();
+  const now = performance.now()/1000 - t0;
+  const s = sample(now).toFixed(3);
+  const byte = Math.round((parseFloat(s)+1)*127.5);
+  log(`t=${now.toFixed(2)}  sample=${s}  byte=0x${byte.toString(16).padStart(2,'0')}`);
+  anim = requestAnimationFrame(loop);
+}
+function stopStream() { running = false; cancelAnimationFrame(anim); log('>>> Stream halted'); }
+function clearLog() { document.getElementById('log').textContent = ''; }
+setTimeout(startStream, 600);
+</script>
+</body>
+</html>
